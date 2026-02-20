@@ -1,5 +1,5 @@
 {
-  "name": "wrapex",
+  "name": "command-wrapex",
   "version": "0.1.0",
   "description": "Command Dispatch Refactoring Toolkit — AI-agent-first skills, rules, schemas, and TypeScript runtime for incremental command-pattern adoption.",
   "type": "module",

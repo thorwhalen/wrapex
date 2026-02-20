@@ -29,13 +29,13 @@ The existing codebase continues to work unchanged. Commands are an additional la
 ### npm (TypeScript runtime)
 
 ```bash
-npm install wrapex
+npm install command-wrapex
 ```
 
 ```typescript
-import { defineCommand, createRegistry } from 'wrapex';
-import { createPaletteAdapter } from 'wrapex/adapters';
-import { CommandCandidate } from 'wrapex/schemas';
+import { defineCommand, createRegistry } from 'command-wrapex';
+import { createPaletteAdapter } from 'command-wrapex/adapters';
+import { CommandCandidate } from 'command-wrapex/schemas';
 ```
 
 ### pip (Python — data access)

@@ -26,6 +26,7 @@ python/wrapex/data/
 .DS_Store
 Thumbs.db
 
-# Env
+# Env / secrets
 .env
 .env.local
+.npmrc
