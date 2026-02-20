@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wrapex"
+version = "0.1.0"
+description = "Command Dispatch Refactoring Toolkit — programmatic access to skills, rules, schemas, templates, and examples for incremental command-pattern adoption."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+authors = [{ name = "thorwhalen" }]
+keywords = ["command-pattern", "refactoring", "ai-toolkit", "mcp", "command-dispatch"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/thorwhalen/wrapex"
+Repository = "https://github.com/thorwhalen/wrapex"
+Issues = "https://github.com/thorwhalen/wrapex/issues"
+
+[project.optional-dependencies]
+testing = ["pytest>=7.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/wrapex"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"skills" = "wrapex/data/skills"
+"rules" = "wrapex/data/rules"
+"examples" = "wrapex/data/examples"
+"templates" = "wrapex/data/templates"
+"src" = "wrapex/data/src"
+"SKILL.md" = "wrapex/data/SKILL.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "python/wrapex/",
+    "skills/",
+    "rules/",
+    "examples/",
+    "templates/",
+    "src/",
+    "SKILL.md",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["py-tests"]

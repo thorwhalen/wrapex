@@ -1,0 +1,70 @@
+{
+  "name": "wrapex",
+  "version": "0.1.0",
+  "description": "Command Dispatch Refactoring Toolkit — AI-agent-first skills, rules, schemas, and TypeScript runtime for incremental command-pattern adoption.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters/index.d.ts",
+      "import": "./dist/adapters/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "import": "./dist/schemas/index.js"
+    },
+    "./skills/*": "./skills/*",
+    "./rules/*": "./rules/*",
+    "./examples/*": "./examples/*",
+    "./templates/*": "./templates/*"
+  },
+  "files": [
+    "dist/",
+    "skills/",
+    "rules/",
+    "examples/",
+    "templates/command-definition.ts.template",
+    "SKILL.md",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "zod": "^3.22.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0",
+    "zod": "^3.23.0"
+  },
+  "keywords": [
+    "command-pattern",
+    "command-dispatch",
+    "refactoring",
+    "ai-toolkit",
+    "mcp",
+    "command-palette",
+    "zod",
+    "middleware"
+  ],
+  "author": "thorwhalen",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thorwhalen/wrapex.git"
+  },
+  "homepage": "https://github.com/thorwhalen/wrapex#readme",
+  "bugs": {
+    "url": "https://github.com/thorwhalen/wrapex/issues"
+  }
+}
