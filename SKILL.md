@@ -45,6 +45,7 @@ After Phase 1, the user has a working command registry with 15-20 commands. Zero
 | 10 | **MCP** | `skills/10-wire-mcp.md` | MCP server exposing commands |
 | 11 | **Tests** | `skills/11-wire-tests.md` | Test skeleton generation |
 | 12 | **Feature Flags** | `skills/12-wire-feature-flags.md` | Feature flag gating |
+| 13 | **Palette Params** | `skills/13-wire-palette-params.md` | Parameter collection for parameterized commands |
 
 ## Templates
 
