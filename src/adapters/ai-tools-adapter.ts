@@ -58,6 +58,7 @@ export function toVercelAiTools(
       execute: async (params) => {
         return registry.execute(command.id, params, {
           source: 'ai',
+          invocation: { surface: 'ai' as const },
           store: undefined,
         });
       },
@@ -113,6 +114,63 @@ export function toAnthropicTools(
   return tools;
 }
 
+// ── Meta-Tool Pattern ───────────────────────────────────────────────────────
+
+/**
+ * Meta-tool result types.
+ */
+export interface MetaToolSet {
+  list_commands: VercelAiTool;
+  execute_command: VercelAiTool;
+}
+
+/**
+ * Creates two meta-tools: `list_commands` and `execute_command`.
+ * Scales better than per-command tools for large registries (50+ commands).
+ *
+ * - `list_commands` — returns all available command descriptors with schemas.
+ * - `execute_command` — executes a command by ID with the given input.
+ *
+ * @param registry - The command registry.
+ * @param options.toPortableSchema - Optional converter for Zod → JSON Schema in descriptors.
+ */
+export function createMetaTools(
+  registry: CommandRegistry,
+  options: {
+    toPortableSchema?: (schema: unknown) => Record<string, unknown>;
+  } = {},
+): MetaToolSet {
+  return {
+    list_commands: {
+      description: 'List all available commands with their IDs, descriptions, categories, and parameter schemas.',
+      parameters: {} as unknown, // no params needed
+      execute: async () => {
+        const descriptors = registry.listDescriptors(options.toPortableSchema);
+        return { commands: descriptors };
+      },
+    },
+    execute_command: {
+      description: 'Execute a command by its ID with the given input parameters.',
+      parameters: {
+        // Schema will be: { commandId: string, input?: object }
+        // The caller (AI SDK) will handle this as a generic object
+      } as unknown,
+      execute: async (params: Record<string, unknown>) => {
+        const commandId = params.commandId as string;
+        const input = (params.input ?? {}) as Record<string, unknown>;
+        if (!commandId) {
+          return { success: false, message: 'commandId is required.' };
+        }
+        return registry.execute(commandId, input, {
+          source: 'ai',
+          invocation: { surface: 'ai' as const },
+          store: undefined,
+        });
+      },
+    },
+  };
+}
+
 // ── Execution Router (for handling AI tool_use results) ────────────────────
 
 /**
@@ -131,6 +189,7 @@ export async function executeAiToolCall(
   const commandId = toolName.replace(/_/g, '.');
   return registry.execute(commandId, params, {
     source: 'ai',
+    invocation: { surface: 'ai' as const },
     store: undefined,
   });
 }

@@ -25,6 +25,8 @@ export interface PaletteEntry {
   section?: string;
   subtitle?: string;
   keywords?: string;
+  /** True if the command exists but is currently disabled (greyed out). */
+  disabled?: boolean;
   perform: (actionImpl?: unknown) => void | Promise<void>;
 }
 
@@ -61,7 +63,7 @@ export function createPaletteAdapter(
 
   return {
     getEntries() {
-      return registry.listAvailable().map((cmd) => ({
+      return registry.listVisible().map((cmd) => ({
         id: cmd.id,
         name: cmd.label,
         shortcut: cmd.keybinding
@@ -69,10 +71,11 @@ export function createPaletteAdapter(
           : undefined,
         section: cmd.category,
         subtitle: cmd.description,
-        keywords: [cmd.id, cmd.label, cmd.category, ...(cmd.tags ?? [])]
+        keywords: [cmd.id, cmd.label, cmd.category, ...(cmd.tags ?? []), ...(cmd.keywords ?? [])]
           .join(' ')
           .toLowerCase(),
-        perform: async () => { await registry.execute(cmd.id, {}, { source, store: undefined }); },
+        disabled: cmd.isEnabled ? !cmd.isEnabled({ store: undefined, source }) : false,
+        perform: async () => { await registry.execute(cmd.id, {}, { source, invocation: { surface: 'palette' as const }, store: undefined }); },
       }));
     },
   };

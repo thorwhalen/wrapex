@@ -107,6 +107,7 @@ export function registerCommandsAsMcpTools(
     server.tool(toolName, description, jsonSchema, async (params) => {
       const result = await registry.execute(command.id, params, {
         source: 'mcp',
+        invocation: { surface: 'mcp' as const },
         store: undefined,
       });
 

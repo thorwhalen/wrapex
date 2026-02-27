@@ -10,16 +10,24 @@ export type {
   CommandDefinition,
   CommandContext,
   CommandResult,
+  CommandInvocation,
+  PolicyMetadata,
   Keybinding,
 } from './define-command.js';
+
+export { resolveMetadata } from './define-command.js';
 
 export { createRegistry } from './command-registry.js';
 export type {
   CommandRegistry,
   CommandMiddleware,
+  CommandDescriptor,
   WhenClauseEvaluator,
   RegistryConfig,
 } from './command-registry.js';
+
+// Portable Schema
+export { toPortableSchema, createPortableSchemaConverter } from './portable-schema.js';
 
 // Middleware
 export {
