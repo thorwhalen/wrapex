@@ -54,10 +54,11 @@ Where:
 
 **When**: The candidate is a method on a Zustand store.
 
+The preferred pattern is `context.getState()` for typed state access. The registry auto-populates `getState` from `context.store.getState()` when a store is provided, so command handlers don't need to import the store directly. Instead, they cast `context.getState()` to the app's state type.
+
 ```typescript
 import { defineCommand } from '../../core/define-command';
-// Import the store hook to access getState()
-import { useAppStore } from '../../../../path/to/store';
+import type { MyAppState } from '../../my-app-state';
 
 export const zoomToFitCommand = defineCommand({
   id: 'app.camera.zoomToFit',
@@ -68,9 +69,11 @@ export const zoomToFitCommand = defineCommand({
   // No schema needed for parameterless commands.
   // Add schema in Skill 05 (Enrich) if params exist.
 
-  execute: async (_params, _context) => {
-    // Delegate to existing Zustand action — zero changes to original code
-    useAppStore.getState().fitView();
+  execute: async (_params, context) => {
+    // The registry auto-populates getState() from the store.
+    // Cast to your app's state type for typed access.
+    const state = context.getState() as MyAppState;
+    state.fitView();
     return { success: true, message: 'Zoomed to fit.' };
   },
 });
@@ -81,7 +84,7 @@ export const zoomToFitCommand = defineCommand({
 ```typescript
 import { z } from 'zod';
 import { defineCommand } from '../../core/define-command';
-import { useAppStore } from '../../../../path/to/store';
+import type { MyAppState } from '../../my-app-state';
 
 const schema = z.object({
   column: z.string().describe('Column name to filter on'),
@@ -96,11 +99,32 @@ export const applyFilterCommand = defineCommand({
   description: 'Filter the dataset by a column condition',
   schema,
 
-  execute: async (params, _context) => {
-    useAppStore.getState().applyFilter(params);
+  execute: async (params, context) => {
+    const state = context.getState() as MyAppState;
+    state.applyFilter(params);
     return { success: true, message: `Filtered on ${params.column}.` };
   },
 });
+```
+
+**Result normalization**: Handlers can return `void`, raw data, or a full `CommandResult`. The registry normalizes all forms:
+
+```typescript
+// All of these are valid handler returns:
+execute: async (params, context) => {
+  // void → { success: true }
+  state.doSomething();
+},
+
+execute: async (params, context) => {
+  // Raw data → { success: true, data: { config: {...} } }
+  return { config: state.getConfig() };
+},
+
+execute: async (params, context) => {
+  // Full result → used as-is (commandId stamped by registry)
+  return { success: true, message: 'Done.', data: result };
+},
 ```
 
 ---
@@ -159,7 +183,8 @@ export const loadProjectCommand = defineCommand({
     const project = await trpcVanilla.project.getProject.query({
       projectId: params.projectId,
     });
-    return { success: true, message: `Loaded project ${params.projectId}.`, data: project };
+    // Return raw data — registry wraps as { success: true, data: project }
+    return project;
   },
 });
 ```
@@ -222,8 +247,8 @@ export { registry };
 For each wrapped command:
 
 1. Import the registry with the new command registered.
-2. Call `registry.execute('the.command.id', params, { source: 'test', store: undefined })`.
-3. Verify it returns `{ success: true }`.
+2. Call `registry.execute('the.command.id', params, { store: mockStore })`.
+3. Verify the result: `result.success === true` and `result.commandId === 'the.command.id'`.
 
 If the command depends on app state (store), you may need to mock or initialize the store first.
 
