@@ -2,7 +2,7 @@
 
 These notes are for wrapex development — capturing what wrapex actually produced in cosmograph, what an expert JS/TS developer independently built for the same spec in sqlrooms, and what wrapex could learn or adopt.
 
-See also: [Full comparison document](../../../c/cosmograph/docs/local/comparing_cosmograph_and_sqlrooms_command_implementations.md)
+See also: [Full comparison document](../../../c/cosmograph/docs/localcomparing_cosmograph_and_sqlrooms_command_implementations.md)
 
 ---
 
