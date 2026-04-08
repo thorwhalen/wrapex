@@ -19,30 +19,83 @@ A configured telemetry middleware plugged into the registry's middleware pipelin
 
 ## Steps
 
+### Approach A: Lifecycle Callbacks (Recommended)
+
+The registry now has built-in lifecycle callbacks that fire on every command execution. This is the simplest and most reliable way to add telemetry — no middleware needed.
+
+### Step 1: Configure Lifecycle Callbacks on the Registry
+
+Update your registry instance in `wrapex-output/commands/index.ts`:
+
+```typescript
+import * as Sentry from '@sentry/react'; // or @sentry/nextjs, @sentry/node
+import posthog from 'posthog-js';         // or your analytics provider
+import { createRegistry } from './core/command-registry';
+import { errorBoundaryMiddleware, validationMiddleware } from './core/middleware-pipeline';
+
+export const registry = createRegistry({
+  middleware: [
+    errorBoundaryMiddleware,
+    validationMiddleware,
+  ],
+
+  // Lifecycle callbacks fire automatically on every command execution.
+  // Each callback is wrapped in try-catch — it can never break command execution.
+
+  onCommandInvokeStart: ({ commandId, context }) => {
+    Sentry.addBreadcrumb({
+      category: 'command',
+      message: commandId,
+      data: { source: context.source },
+    });
+  },
+
+  onCommandInvokeSuccess: ({ commandId, result, durationMs }) => {
+    posthog.capture('command_executed', {
+      command_id: commandId,
+      success: true,
+      duration_ms: durationMs,
+    });
+  },
+
+  onCommandInvokeFailure: ({ commandId, result, durationMs }) => {
+    posthog.capture('command_executed', {
+      command_id: commandId,
+      success: false,
+      code: result.code,
+      message: result.message,
+      duration_ms: durationMs,
+    });
+  },
+
+  onCommandInvokeError: ({ commandId, error, durationMs }) => {
+    Sentry.captureException(error, {
+      extra: { commandId, durationMs },
+    });
+  },
+});
+```
+
+### Approach B: Telemetry Middleware (Alternative)
+
+If you need more control (e.g., modifying params before execution), the middleware approach still works:
+
 ### Step 1: Copy the Telemetry Middleware Template
 
 Copy `templates/telemetry-middleware.ts` to `wrapex-output/commands/middleware/telemetry.ts`.
 
 ### Step 2: Configure for Your Providers
 
-Create the middleware instance with your specific integrations:
-
 ```typescript
-// wrapex-output/commands/middleware/telemetry.ts
-import * as Sentry from '@sentry/react'; // or @sentry/nextjs, @sentry/node
-import posthog from 'posthog-js';         // or your analytics provider
+import * as Sentry from '@sentry/react';
+import posthog from 'posthog-js';
 import { createTelemetryMiddleware } from './telemetry-middleware';
 
 export const telemetryMiddleware = createTelemetryMiddleware({
-  // Sentry breadcrumbs — appears in error reports as user action trail
   addBreadcrumb: (data) => Sentry.addBreadcrumb(data),
-
-  // Analytics events — appears in PostHog / Amplitude / Mixpanel
   captureEvent: (eventName, properties) => {
     posthog.capture(eventName, properties);
   },
-
-  // Error capture — sends to Sentry with command context
   captureError: (error, context) => {
     Sentry.captureException(error, { extra: context });
   },
@@ -51,21 +104,13 @@ export const telemetryMiddleware = createTelemetryMiddleware({
 
 ### Step 3: Add to the Middleware Pipeline
 
-Update the registry instance in `wrapex-output/commands/index.ts`:
-
 ```typescript
-import { createRegistry } from './core/command-registry';
-import { errorBoundaryMiddleware, validationMiddleware } from './core/middleware-pipeline';
-import { telemetryMiddleware } from './middleware/telemetry';
-
 export const registry = createRegistry({
   middleware: [
-    errorBoundaryMiddleware,  // Outermost — catches all errors
-    telemetryMiddleware,      // Records breadcrumb + event
-    validationMiddleware,     // Validates params
-    // Handler executes last
+    errorBoundaryMiddleware,
+    telemetryMiddleware,
+    validationMiddleware,
   ],
-  // ... rest of config
 });
 ```
 

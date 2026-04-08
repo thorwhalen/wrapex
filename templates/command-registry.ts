@@ -2,21 +2,28 @@
  * @wrapex/core - Command Registry
  *
  * A centralized Map<string, CommandDefinition> with register(), execute(),
- * and middleware pipeline support. This is the runtime core of the toolkit.
+ * middleware pipeline support, built-in validation, result normalization,
+ * and lifecycle callbacks.
  *
  * Usage:
  *   import { createRegistry } from './command-registry';
  *   import { myCommand } from './commands/my-command';
  *
- *   const registry = createRegistry();
+ *   const registry = createRegistry({
+ *     onCommandInvokeSuccess: ({ commandId, durationMs }) =>
+ *       console.warn(`${commandId} completed in ${durationMs}ms`),
+ *   });
  *   registry.register(myCommand);
- *   await registry.execute('app.domain.myAction', { foo: 'bar' }, { source: 'palette' });
+ *   const result = await registry.execute('app.domain.myAction', { foo: 'bar' });
+ *   console.warn(result.commandId); // 'app.domain.myAction' (always stamped)
  */
 
 import type {
   CommandDefinition,
   CommandContext,
   CommandResult,
+  CommandExecuteOutput,
+  CommandInvocation,
 } from './define-command';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -32,6 +39,34 @@ export type CommandMiddleware = (
 /** When-clause evaluator. Returns true if the command should be available. */
 export type WhenClauseEvaluator = (clause: string) => boolean;
 
+/** Lifecycle event for command invocation start. */
+export interface CommandInvokeStartEvent {
+  commandId: string;
+  params: unknown;
+  context: CommandContext;
+}
+
+/** Lifecycle event for successful command invocation. */
+export interface CommandInvokeSuccessEvent {
+  commandId: string;
+  result: CommandResult;
+  durationMs: number;
+}
+
+/** Lifecycle event for failed command invocation (returned success: false). */
+export interface CommandInvokeFailureEvent {
+  commandId: string;
+  result: CommandResult;
+  durationMs: number;
+}
+
+/** Lifecycle event for command invocation that threw an error. */
+export interface CommandInvokeErrorEvent {
+  commandId: string;
+  error: unknown;
+  durationMs: number;
+}
+
 /** Registry configuration. */
 export interface RegistryConfig {
   /** Middleware executed in order around every command. */
@@ -40,6 +75,47 @@ export interface RegistryConfig {
   evaluateWhen?: WhenClauseEvaluator;
   /** Injected into every command's execution context. */
   contextProvider?: () => Partial<CommandContext>;
+  /** Lifecycle callback: fires before command execution. */
+  onCommandInvokeStart?: (event: CommandInvokeStartEvent) => void;
+  /** Lifecycle callback: fires after successful execution (result.success === true). */
+  onCommandInvokeSuccess?: (event: CommandInvokeSuccessEvent) => void;
+  /** Lifecycle callback: fires after failed execution (result.success === false). */
+  onCommandInvokeFailure?: (event: CommandInvokeFailureEvent) => void;
+  /** Lifecycle callback: fires when command handler throws an error. */
+  onCommandInvokeError?: (event: CommandInvokeErrorEvent) => void;
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Normalizes whatever a command handler returns into a full CommandResult.
+ * Handlers may return: void, raw data, or a CommandResult object.
+ */
+function normalizeResult(raw: CommandExecuteOutput, commandId: string): CommandResult {
+  if (raw === undefined || raw === null) {
+    return { success: true, commandId };
+  }
+  if (
+    typeof raw === 'object' &&
+    'success' in (raw as Record<string, unknown>)
+  ) {
+    const result = raw as CommandResult;
+    return { ...result, commandId: result.commandId ?? commandId };
+  }
+  return { success: true, commandId, data: raw };
+}
+
+/**
+ * Safely fires a lifecycle callback, catching any errors so the
+ * callback never breaks command execution.
+ */
+function safeCallback<T>(fn: ((event: T) => void) | undefined, event: T): void {
+  if (!fn) return;
+  try {
+    fn(event);
+  } catch (err) {
+    console.error('[wrapex] Lifecycle callback error:', err);
+  }
 }
 
 // ── Registry ───────────────────────────────────────────────────────────────
@@ -87,12 +163,34 @@ export function createRegistry(config: RegistryConfig = {}): CommandRegistry {
   function buildContext(
     overrides?: Partial<CommandContext>,
   ): CommandContext {
-    return {
+    const base = contextProvider();
+    const merged: CommandContext = {
+      getState: () => undefined,
       store: undefined,
       source: 'unknown',
-      ...contextProvider(),
+      ...base,
       ...overrides,
     };
+    // Auto-populate getState from store if not explicitly provided.
+    // This lets command handlers use `context.getState()` for typed state
+    // access when the caller passes `{ store: someStoreApi }`.
+    if (
+      merged.getState === undefined ||
+      (typeof merged.getState === 'function' && merged.getState() === undefined)
+    ) {
+      const storeRef = merged.store;
+      if (storeRef && typeof storeRef === 'object' && 'getState' in storeRef) {
+        const getStateFn = (storeRef as { getState: () => unknown }).getState;
+        merged.getState = getStateFn;
+      }
+    }
+    // Sync source <-> invocation.surface
+    if (merged.invocation && merged.source === 'unknown') {
+      merged.source = merged.invocation.surface;
+    } else if (merged.source !== 'unknown' && !merged.invocation) {
+      merged.invocation = { surface: merged.source as CommandInvocation['surface'] };
+    }
+    return merged;
   }
 
   function runMiddleware(
@@ -107,8 +205,14 @@ export function createRegistry(config: RegistryConfig = {}): CommandRegistry {
         const mw = middleware[index++];
         return mw(command, params, context, next);
       }
-      // End of middleware chain — execute the command handler.
-      return command.execute(params as any, context);
+      // Use validated/coerced params if the validation middleware ran,
+      // otherwise fall back to the original params.
+      const effectiveParams = context._validatedParams ?? params;
+      const rawResult = command.execute(effectiveParams as any, context);
+      // Normalize the handler result (supports void, raw data, or CommandResult)
+      return Promise.resolve(rawResult).then(
+        (raw) => normalizeResult(raw as CommandExecuteOutput, command.id),
+      );
     }
 
     return next();
@@ -137,14 +241,16 @@ export function createRegistry(config: RegistryConfig = {}): CommandRegistry {
     async execute(id, params, contextOverrides) {
       const command = commands.get(id);
       if (!command) {
-        return { success: false, message: `Unknown command: "${id}"` };
+        return { success: false, commandId: id, message: `Unknown command: "${id}"`, code: 'command-not-found' };
       }
 
       // Check when-clause
       if (command.when && !evaluateWhen(command.when)) {
         return {
           success: false,
+          commandId: id,
           message: `Command "${id}" is not available in the current context (when: "${command.when}").`,
+          code: 'command-unavailable',
         };
       }
 
@@ -153,12 +259,52 @@ export function createRegistry(config: RegistryConfig = {}): CommandRegistry {
         ...contextOverrides,
       });
 
+      // Built-in validation: validate params before middleware pipeline.
+      let validatedParams: unknown = params ?? {};
+      if (command.schema) {
+        const parseResult = command.schema.safeParse(validatedParams);
+        if (!parseResult.success) {
+          return {
+            success: false,
+            commandId: id,
+            message: `Invalid input: ${parseResult.error.issues.map((i: { message: string }) => i.message).join(', ')}`,
+            code: 'validation-failed',
+            error: parseResult.error.message,
+          };
+        }
+        validatedParams = parseResult.data;
+        // Signal to validation middleware that built-in validation already ran
+        context._builtInValidationDone = true;
+        context._validatedParams = validatedParams;
+      }
+
+      const startTime = performance.now();
+
+      // Fire lifecycle start callback
+      safeCallback(config.onCommandInvokeStart, { commandId: id, params: validatedParams, context });
+
       try {
-        return await runMiddleware(command, params ?? {}, context);
+        const result = await runMiddleware(command, validatedParams, context);
+        const normalized = normalizeResult(result, id);
+        const durationMs = performance.now() - startTime;
+
+        // Fire success or failure callback
+        if (normalized.success) {
+          safeCallback(config.onCommandInvokeSuccess, { commandId: id, result: normalized, durationMs });
+        } else {
+          safeCallback(config.onCommandInvokeFailure, { commandId: id, result: normalized, durationMs });
+        }
+
+        return normalized;
       } catch (err) {
+        const durationMs = performance.now() - startTime;
         const message =
           err instanceof Error ? err.message : String(err);
-        return { success: false, message: `Command "${id}" failed: ${message}` };
+
+        // Fire error callback
+        safeCallback(config.onCommandInvokeError, { commandId: id, error: err, durationMs });
+
+        return { success: false, commandId: id, message: `Command "${id}" failed: ${message}`, code: 'command-error' };
       }
     },
 

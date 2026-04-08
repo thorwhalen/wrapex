@@ -10,6 +10,8 @@ export type {
   CommandDefinition,
   CommandContext,
   CommandResult,
+  CommandExecuteOutput,
+  CommandStoreApi,
   CommandInvocation,
   PolicyMetadata,
   Keybinding,
@@ -24,6 +26,10 @@ export type {
   CommandDescriptor,
   WhenClauseEvaluator,
   RegistryConfig,
+  CommandInvokeStartEvent,
+  CommandInvokeSuccessEvent,
+  CommandInvokeFailureEvent,
+  CommandInvokeErrorEvent,
 } from './command-registry.js';
 
 // Portable Schema

@@ -82,10 +82,46 @@ it('should validate parameters against schema', async () => {
 it('should validate parameters against schema', async () => {
   const validParams = { column: 'age', operator: '>', value: 25 };
   const result = await registry.execute('app.data.applyFilter', validParams, {
-    source: 'test',
     store: mockStore,
   });
   expect(result.success).toBe(true);
+  // The registry always stamps commandId on results
+  expect(result.commandId).toBe('app.data.applyFilter');
+});
+
+// Test built-in validation failure (returns error code, doesn't throw):
+it('should return validation error for invalid params', async () => {
+  const result = await registry.execute('app.data.applyFilter', { column: 123 });
+  expect(result.success).toBe(false);
+  expect(result.code).toBe('validation-failed');
+  expect(result.commandId).toBe('app.data.applyFilter');
+});
+
+// Test result normalization — commands returning raw data:
+it('should normalize raw data return into CommandResult', async () => {
+  const result = await registry.execute('app.config.getConfig', {}, {
+    store: mockStore,
+  });
+  expect(result.success).toBe(true);
+  expect(result.data).toBeDefined();
+  expect(result.commandId).toBe('app.config.getConfig');
+});
+```
+
+**Setting up a mock store**: Commands access state via `context.getState()`. The registry auto-populates this from `context.store.getState()`, so your mock only needs a `getState()` method:
+
+```typescript
+function createMockStore(initialState = {}) {
+  let currentState = { ...initialState };
+  return {
+    getState: () => currentState,
+    setState: (partial) => { currentState = { ...currentState, ...partial }; },
+  };
+}
+
+const mockStore = createMockStore({
+  filters: [],
+  config: { enableSimulation: true },
 });
 ```
 
@@ -103,19 +139,20 @@ describe('User Story: Filter and Zoom', () => {
     const filterResult = await registry.execute(
       'app.data.applyFilter',
       { column: 'age', operator: '>', value: 25 },
-      { source: 'test', store: mockStore },
+      { store: mockStore },
     );
     expect(filterResult.success).toBe(true);
+    expect(filterResult.commandId).toBe('app.data.applyFilter');
 
     // Step 2: Zoom to fit
     const zoomResult = await registry.execute(
       'app.camera.zoomToFit',
       {},
-      { source: 'test', store: mockStore },
+      { store: mockStore },
     );
     expect(zoomResult.success).toBe(true);
 
-    // Assert final state
+    // Assert final state via the mock store
     expect(mockStore.getState().filters).toHaveLength(1);
   });
 });

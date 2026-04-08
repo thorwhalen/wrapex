@@ -72,7 +72,7 @@ export function createPaletteAdapter(
         keywords: [cmd.id, cmd.label, cmd.category, ...(cmd.tags ?? [])]
           .join(' ')
           .toLowerCase(),
-        perform: () => registry.execute(cmd.id, {}, { source, store: undefined }),
+        perform: () => registry.execute(cmd.id, {}, { source, invocation: { surface: 'palette' as const } }),
       }));
     },
   };
