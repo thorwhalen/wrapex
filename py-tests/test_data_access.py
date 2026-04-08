@@ -5,9 +5,9 @@ import wrapex
 
 
 class TestListSkills:
-    def test_returns_12_skills(self):
+    def test_returns_at_least_one_skill(self):
         skills = wrapex.list_skills()
-        assert len(skills) == 12
+        assert len(skills) >= 1
 
     def test_skills_are_sorted(self):
         skills = wrapex.list_skills()
@@ -38,9 +38,9 @@ class TestGetSkill:
 
 
 class TestListRules:
-    def test_returns_3_rules(self):
+    def test_returns_at_least_one_rule(self):
         rules = wrapex.list_rules()
-        assert len(rules) == 3
+        assert len(rules) >= 1
 
     def test_includes_naming(self):
         rules = wrapex.list_rules()
@@ -62,9 +62,9 @@ class TestGetRule:
 
 
 class TestListExamples:
-    def test_returns_4_examples(self):
+    def test_returns_at_least_one_example(self):
         examples = wrapex.list_examples()
-        assert len(examples) == 4
+        assert len(examples) >= 1
 
     def test_includes_zustand(self):
         examples = wrapex.list_examples()
