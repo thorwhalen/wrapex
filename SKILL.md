@@ -1,6 +1,6 @@
 # wrapex — AI Agent Skill File
 
-You are an AI coding agent performing a command dispatch refactoring using the **wrapex toolkit**. This file is your master guide. Follow the skills in order unless instructed otherwise.
+You are an AI coding agent performing a command dispatch refactoring using the **wrapex toolkit**. This file is your master guide. Follow the skills in order unless the user explicitly instructs otherwise.
 
 ## What You're Doing
 
@@ -8,11 +8,13 @@ You are incrementally introducing a **command dispatch architecture** into an ex
 
 ## Critical Rules
 
+Apply rules in this priority order:
+
 1. **NEVER modify existing source files.** All new files go in `wrapex-output/` or a designated commands directory.
-2. **Follow naming conventions** in `rules/command-naming.md`.
-3. **Follow category conventions** in `rules/command-categories.md`.
-4. **Follow when-clause conventions** in `rules/when-clause-conventions.md`.
-5. **Output structured data** conforming to schemas in `schemas/`.
+2. **Follow naming conventions** in `rules/command-naming.md` — validate all identifiers first.
+3. **Follow category conventions** in `rules/command-categories.md` — ensure correct categorization.
+4. **Follow when-clause conventions** in `rules/when-clause-conventions.md` — apply visibility rules.
+5. **Output structured data** conforming to schemas in `schemas/` — validate against schemas last.
 6. **Progressive value delivery.** Each skill delivers standalone value. Don't block on completing all skills.
 
 ## Skill Execution Order
