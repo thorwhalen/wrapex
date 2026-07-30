@@ -10,11 +10,9 @@
 import { z } from 'zod';
 import { defineCommand } from '__WRAPEX_CORE_PATH__/define-command';
 
-// CONFIGURE: Import the original function/action/store you are wrapping.
-// Example for Zustand:
-//   import { useAppStore } from '__APP_STORE_PATH__';
-// Example for a standalone function:
-//   import { originalFunction } from '__ORIGINAL_MODULE_PATH__';
+// CONFIGURE: Import your app's state type for typed store access.
+// Example:
+//   import type { MyAppState } from '__APP_STATE_TYPE_PATH__';
 
 // CONFIGURE: Define the parameter schema. Remove if the command takes no params.
 const schema = z.object({
@@ -46,15 +44,21 @@ export const __COMMAND_VAR_NAME__ = defineCommand({
   execute: async (params, context) => {
     // CONFIGURE: Replace with actual delegation to existing code.
     //
+    // The preferred pattern is context.getState() for typed state access.
+    // The registry auto-populates getState from context.store.getState()
+    // so you just need to cast to your app's state type.
+    //
     // Zustand pattern:
-    //   const store = context.store as ReturnType<typeof useAppStore.getState>;
-    //   store.__ACTION_NAME__(params);
+    //   const state = context.getState() as MyAppState;
+    //   state.__ACTION_NAME__(params);
     //
     // Standalone function pattern:
     //   await originalFunction(params);
     //
-    // Event handler pattern:
-    //   (same as Zustand — the handler typically calls a store action)
+    // Returning data (the registry normalizes the result):
+    //   return { config };  // becomes { success: true, data: { config } }
+    //   return;             // becomes { success: true }
+    //   return { success: true, message: 'Done.' };  // used as-is
 
     return { success: true, message: '__COMMAND_LABEL__ executed.' };
   },

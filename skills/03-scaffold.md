@@ -82,10 +82,23 @@ export const registry = createRegistry({
   //   },
 
   // CONFIGURE: Provide app context to command handlers.
+  // The registry auto-populates context.getState() from store.getState(),
+  // so command handlers can use `context.getState() as MyAppState`.
   // Example for Zustand:
   //   contextProvider: () => ({
   //     store: useAppStore,
   //   }),
+
+  // CONFIGURE: Lifecycle callbacks for telemetry, logging, or UI feedback.
+  // These fire on every command execution without needing middleware.
+  //   onCommandInvokeStart: ({ commandId }) =>
+  //     console.warn(`[cmd] Starting: ${commandId}`),
+  //   onCommandInvokeSuccess: ({ commandId, result, durationMs }) =>
+  //     console.warn(`[cmd] ${commandId} succeeded in ${durationMs}ms`),
+  //   onCommandInvokeFailure: ({ commandId, result }) =>
+  //     console.warn(`[cmd] ${commandId} failed: ${result.message}`),
+  //   onCommandInvokeError: ({ commandId, error }) =>
+  //     console.error(`[cmd] ${commandId} threw:`, error),
 });
 ```
 
@@ -94,11 +107,15 @@ export const registry = createRegistry({
 Create `wrapex-output/commands/core/index.ts`:
 
 ```typescript
-export { defineCommand } from './define-command';
+export { defineCommand, resolveMetadata } from './define-command';
 export type {
   CommandDefinition,
   CommandContext,
   CommandResult,
+  CommandExecuteOutput,
+  CommandStoreApi,
+  CommandInvocation,
+  PolicyMetadata,
   Keybinding,
 } from './define-command';
 
@@ -108,6 +125,10 @@ export type {
   CommandMiddleware,
   WhenClauseEvaluator,
   RegistryConfig,
+  CommandInvokeStartEvent,
+  CommandInvokeSuccessEvent,
+  CommandInvokeFailureEvent,
+  CommandInvokeErrorEvent,
 } from './command-registry';
 
 export {

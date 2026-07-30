@@ -22,6 +22,15 @@ import type { ZodType } from 'zod';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+/**
+ * Minimal store interface for command handlers.
+ * Structurally compatible with Zustand's StoreApi but does not import it,
+ * keeping command definitions framework-agnostic.
+ */
+export interface CommandStoreApi<S> {
+  getState(): S;
+}
+
 /** Keybinding descriptor. Follows standard modifier + key convention. */
 export interface Keybinding {
   key: string;
@@ -31,12 +40,35 @@ export interface Keybinding {
   meta?: boolean;
 }
 
-/** Result returned by every command handler. */
-export interface CommandResult {
+/**
+ * Result returned by every command handler.
+ *
+ * The `commandId` and `code` fields are stamped by the registry for
+ * traceability. Handlers may return a bare `CommandResult` without them —
+ * the registry will fill them in.
+ */
+export interface CommandResult<TData = unknown> {
   success: boolean;
+  /** Registry stamps this with the command's ID. */
+  commandId?: string;
   message?: string;
-  data?: unknown;
+  /** Machine-readable error/status code for programmatic consumers. */
+  code?: string;
+  data?: TData;
+  /** Separate error detail (stack trace, validation error, etc.). */
+  error?: string;
 }
+
+/**
+ * What a command handler may return. The registry normalizes all forms:
+ * - `void` / `undefined` → `{ success: true }`
+ * - Raw data (any non-result object) → `{ success: true, data: <value> }`
+ * - A `CommandResult` object → used as-is (with `commandId` stamped).
+ */
+export type CommandExecuteOutput<TData = unknown> =
+  | CommandResult<TData>
+  | TData
+  | void;
 
 /** Policy metadata for risk assessment, MCP annotations, and AI reasoning. */
 export interface PolicyMetadata {
@@ -63,9 +95,20 @@ export interface CommandInvocation {
 }
 
 /** Execution context injected into every command handler. */
-export interface CommandContext {
-  /** Access to the app's state store (implementation-specific). */
-  store: unknown;
+export interface CommandContext<S = unknown> {
+  /**
+   * Typed state accessor. Preferred way for commands to read state.
+   * The registry auto-populates this from `store.getState` if the
+   * store has a `getState` method.
+   */
+  getState: () => S;
+  /**
+   * Access to the app's state store (implementation-specific).
+   * @deprecated Prefer `getState()` for typed state access.
+   * Kept for backward compatibility and for the registry to
+   * auto-populate `getState`.
+   */
+  store?: CommandStoreApi<S> | unknown;
   /**
    * Source that triggered this command.
    * @deprecated Use invocation.surface instead. Kept for backwards compatibility.
@@ -123,11 +166,20 @@ export interface CommandDefinition<TSchema extends ZodType = ZodType> {
   inputComponent?: unknown;
   /** Additional search keywords for palette matching. */
   keywords?: string[];
-  /** The command handler. Receives validated params and execution context. */
+  /**
+   * The command handler. Receives validated params and execution context.
+   *
+   * May return:
+   * - `void` (treated as `{ success: true }`)
+   * - Raw data (wrapped as `{ success: true, data: <value> }`)
+   * - A full `CommandResult` object
+   *
+   * The registry normalizes all forms and stamps `commandId`.
+   */
   execute: (
     params: TSchema extends ZodType<infer T> ? T : void,
     context: CommandContext,
-  ) => Promise<CommandResult>;
+  ) => Promise<CommandExecuteOutput> | CommandExecuteOutput;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

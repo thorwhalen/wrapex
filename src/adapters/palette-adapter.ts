@@ -74,7 +74,7 @@ export function createPaletteAdapter(
         keywords: [cmd.id, cmd.label, cmd.category, ...(cmd.tags ?? []), ...(cmd.keywords ?? [])]
           .join(' ')
           .toLowerCase(),
-        disabled: cmd.isEnabled ? !cmd.isEnabled({ store: undefined, source }) : false,
+        disabled: cmd.isEnabled ? !cmd.isEnabled({ getState: () => undefined, store: undefined, source }) : false,
         perform: async () => { await registry.execute(cmd.id, {}, { source, invocation: { surface: 'palette' as const }, store: undefined }); },
       }));
     },

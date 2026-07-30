@@ -20,7 +20,13 @@ import type { CommandMiddleware } from './command-registry.js';
 
 /**
  * Validates params against the command's Zod schema (if present).
- * Throws a ZodError if validation fails — catch it in an outer error-handling middleware.
+ *
+ * Skips if the registry's built-in validation already ran (indicated by
+ * `context._builtInValidationDone`). This prevents double-validation
+ * when the registry validates upfront and this middleware is also in the pipeline.
+ *
+ * Stores validated/coerced params in `context._validatedParams` so
+ * downstream middleware and the handler can use the coerced values.
  */
 export const validationMiddleware: CommandMiddleware = async (
   command,
@@ -28,8 +34,8 @@ export const validationMiddleware: CommandMiddleware = async (
   context,
   next,
 ) => {
-  if (command.schema) {
-    command.schema.parse(params);
+  if (command.schema && !context._builtInValidationDone) {
+    context._validatedParams = command.schema.parse(params);
   }
   return next();
 };
