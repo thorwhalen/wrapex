@@ -1,3 +1,6 @@
+# npm auth: trusted publishing (OIDC) only. Never add an NPM_TOKEN secret.
+# npmjs.com -> each package -> Settings -> Trusted Publisher -> GitHub Actions:
+#   owner/repo = thorwhalen/wrapex, workflow filename = release.yml, no environment.
 name: Release
 
 on:
@@ -9,20 +12,27 @@ jobs:
   publish-npm:
     name: Publish to npm
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
+      - name: Ensure npm >= 11.5.1 (required for OIDC trusted publishing)
+        run: |
+          if ! node -e "const [a,b,c]=process.argv[1].split('.').map(Number);process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)" "$(npm --version)"; then
+            npm install -g npm@^11.5.1
+          fi
+          npm --version
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm test
       - run: npm run build
-      - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish --access public --provenance
 
   publish-pypi:
     name: Publish to PyPI
