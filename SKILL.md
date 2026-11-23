@@ -1,3 +1,9 @@
+---
+name: wrapex
+description: >-
+  Incrementally refactor an existing TypeScript/React codebase into a command dispatch architecture with the strangler fig pattern: wrap existing functions (zustand store actions, event handlers, API calls) in command definitions without modifying the original code, then wire the registry to a command palette, keyboard shortcuts, telemetry, AI tool definitions, an MCP server, tests, feature flags and palette parameters. Use when asked to "add a command palette to this app", "make these actions AI-callable", "expose the app's actions over MCP", "introduce a command registry", "wrap existing handlers as commands", "diagnose command candidates", or to run any of wrapex's 13 skills (diagnose, plan, scaffold, wrap, enrich, wire-*). Produces structured output in wrapex-output/ that validates against wrapex's schemas.
+---
+
 # wrapex — AI Agent Skill File
 
 You are an AI coding agent performing a command dispatch refactoring using the **wrapex toolkit**. This file is your master guide. Follow the skills in order unless the user explicitly instructs otherwise.
